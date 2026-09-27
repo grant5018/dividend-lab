@@ -1,0 +1,1 @@
+{"mode":"EPS","price":100,"shares":10000000,"marketCap":1000000000,"eps":10,"payout":60,"normalizedEps":6,"sustainablePayout":50,"ttmDividend":4,"buyback":2,"scenarios":[{"name":"悲观","growth":-20,"payout":50,"price":100},{"name":"基准","growth":0,"payout":60,"price":100},{"name":"乐观","growth":20,"payout":60,"price":100}]}
