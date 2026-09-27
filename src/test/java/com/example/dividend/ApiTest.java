@@ -8,7 +8,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:tests;DB_CLOSE_DELAY=-1","spring.jpa.hibernate.ddl-auto=create-drop"})
+@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:tests;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE","spring.jpa.hibernate.ddl-auto=create-drop"})
 @ActiveProfiles("h2") @AutoConfigureMockMvc
 class ApiTest {
  @Autowired MockMvc mvc; @Autowired ObjectMapper mapper;
@@ -28,5 +28,15 @@ class ApiTest {
   mvc.perform(delete("/api/measurements/"+id)).andExpect(status().isOk());
   mvc.perform(get("/api/measurements/"+id)).andExpect(status().isNotFound());
   mvc.perform(delete("/api/assets/"+assetId)).andExpect(status().isOk());
+ }
+ @Test void etfLifecycle() throws Exception {
+  String a=mvc.perform(post("/api/assets").contentType("application/json").content("{\"code\":\"ETFTEST\",\"name\":\"ETF test\",\"price\":1.2}")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+  Api.SaveRequest request=new Api.SaveRequest();request.assetId=mapper.readTree(a).get("id").asLong();request.title="ETF";request.input=EtfTest.fixture();request.input.holdings.add(EtfTest.h("A","100","5","4"));
+  String m=mvc.perform(post("/api/measurements").contentType("application/json").content(mapper.writeValueAsString(request))).andExpect(status().isOk()).andExpect(jsonPath("$.result.forward").value(3)).andReturn().getResponse().getContentAsString();
+  long id=mapper.readTree(m).get("id").asLong();
+  mvc.perform(get("/api/measurements/"+id)).andExpect(status().isOk()).andExpect(jsonPath("$.input.holdings[0].code").value("A")).andExpect(jsonPath("$.input.mode").value("ETF"));
+  request.input.expectedDistribution=null;
+  mvc.perform(put("/api/measurements/"+id).contentType("application/json").content(mapper.writeValueAsString(request))).andExpect(status().isOk()).andExpect(jsonPath("$.result.forward").isEmpty());
+  mvc.perform(delete("/api/measurements/"+id)).andExpect(status().isOk());mvc.perform(delete("/api/assets/"+request.assetId)).andExpect(status().isOk());
  }
 }

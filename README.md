@@ -89,7 +89,7 @@ java -jar target/dividend-lab-1.0.0.jar --spring.profiles.active=h2
 
 切换口径时，如果有股本或市值/股价可推算股本，前端会换算盈利、正常化盈利和TTM分红；否则清空这三个字段要求重新录入。
 
-所有指标为税前、名义值，不含个税、手续费、通胀或价格涨跌。回购率需手工提供同一未来12个月区间的预计回购金额/当前市值，不扣除增发稀释，不等于实际收到现金。ETF底层资产股息率不等于ETF实际现金分红率，本工具不计算ETF成分股穿透加权或基金分配政策。
+所有指标为税前、名义值，不含个税、手续费、通胀或价格涨跌。回购率需手工提供同一未来12个月区间的预计回购金额/当前市值，不扣除增发稀释，不等于实际收到现金。ETF底层资产股息率不等于ETF实际现金分红率，ETF专用模式支持手工持仓穿透加权，但不自动预测基金分配政策。
 
 ## API
 
@@ -161,3 +161,22 @@ mkdir -p target/core-checks
 javac -encoding UTF-8 -d target/core-checks src/main/java/com/example/dividend/Calculator.java src/test/java/com/example/dividend/CalculatorChecks.java
 java -cp target/core-checks com.example.dividend.CalculatorChecks
 ```
+
+
+## ETF 专用测算（新增）
+
+在计算口径选择「ETF · 现金分红 / 底层持仓」。例如159222，先新建标的，再输入价格和以下参数。无需EPS、净利润或100%分红率。数据均需手工核实，不内置159222实时行情或预测。
+
+- 过去12个月实际每份现金分红、未来12个月预计每份现金分红、可持续每份现金分红假设：单位元/份；允许空值，返回null、页面显示“—”，代表未知。明确没有分红才填0。每10份分红需除以10转换。
+- 三个基金现金分红率 = 对应每份现金分红 ÷ 买入价格 × 100%。已录入的基金现金分红不重复扣费。
+- ETF情景 = 预计每份现金分红 × (1 + 分红增幅/100) ÷ 场景价格 × 100%，不输入场景分红率。
+- ETF不计算股票回购或股东回报率；shareholder返回null。
+- 底层持仓按基金净资产占比输入weight（百分数），同时输入各股票的前瞻和可持续股息率（百分数）。底层贡献 = Σ(weight × yield / 100)，输出百分数。
+- 权重必须大于0，总和不得超过100%，代码不可重复。支持不完整持仓，但绝不自动归一化：20%权重、5%股息率仅贡献1个百分点，不能当成基金股息率5%。任一持仓该类股息率缺失，则该类汇总返回null。
+- 只有覆盖率恰好100%、前瞻股息率齐全、填写单位净值nav和年费率annualFee时，才计算扣费后股息贡献相对于买入价 = (底层前瞻贡献 − 年费率) × 单位净值 / 买入价格。可能为负，仅为简化贡献估算，不是基金现金分红或基金总收益，也未计税费、交易成本和未来调仓。
+- annualFee是管理费、托管费等年费率合计，输入0.2表示0.2%。所有权重、净值与持仓股息率应尽可能取同一时点。
+- ETF参数和持仓随历史记录保存；旧EPS/TOTAL记录继续按旧口径读取。不自动将之前借用EPS录入的ETF记录转换，需新建ETF记录重新输入。
+
+API仍使用POST /api/calculate和原有测算记录接口，mode新增ETF。新增字段为expectedDistribution、sustainableDistribution、nav、annualFee、holdings；持仓字段code、weight、forwardYield、sustainableYield。ETF场景payout须省略或null。响应新增coverage、underlyingForward、underlyingSustainable、netDividendEstimate。参见examples/etf.json（纯假设演示，非159222实际数据）。
+
+ETF改动验证：Maven离线test-compile成功；使用本地依赖直接运行6项ETF测试和股票计算检查，以及Spring TestContext/MockMvc的股票、ETF创建/读取/更新/删除持久化测试。前端通过JavaScript语法检查。标准mvn test所需Surefire插件尚未缓存，离线执行失败；未完成真实浏览器与MySQL联调。

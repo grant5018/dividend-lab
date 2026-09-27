@@ -1,0 +1,40 @@
+{
+  "mode": "ETF",
+  "price": 1.2,
+  "ttmDividend": 0.024,
+  "expectedDistribution": 0.036,
+  "sustainableDistribution": 0.03,
+  "nav": 1.2,
+  "annualFee": 0.2,
+  "holdings": [
+    {
+      "code": "DEMO_A",
+      "weight": 40,
+      "forwardYield": 5,
+      "sustainableYield": 4
+    },
+    {
+      "code": "DEMO_B",
+      "weight": 60,
+      "forwardYield": 3,
+      "sustainableYield": 2
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "悲观",
+      "growth": -20,
+      "price": 1.2
+    },
+    {
+      "name": "基准",
+      "growth": 0,
+      "price": 1.2
+    },
+    {
+      "name": "乐观",
+      "growth": 20,
+      "price": 1.2
+    }
+  ]
+}
